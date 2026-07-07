@@ -71,15 +71,15 @@ class MonitoringService:
         }
     
     def pausar(self):
-    if not self.state.activo:
+        if not self.state.activo:
+            return {
+                "ok": False,
+                "mensaje": "No hay monitoreo activo para pausar"
+            }
+
+        self.state.detener()
+
         return {
-            "ok": False,
-            "mensaje": "No hay monitoreo activo para pausar"
+            "ok": True,
+            "mensaje": "Viaje pausado correctamente"
         }
-
-    self.state.detener()
-
-    return {
-        "ok": True,
-        "mensaje": "Viaje pausado correctamente"
-    }
