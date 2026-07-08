@@ -5,7 +5,7 @@ class GorraService:
 
     def __init__(self):
         # URL de la API .NET de tu compañero
-        self.base_url = "http://192.168.1.72:5130/api"
+        self.base_url = "http://172.20.10.3:5130/api"
 
     def iniciar_gorra(self, usuario_id, ruta_id):
         return self.enviar_comando("INICIAR_VIAJE")
