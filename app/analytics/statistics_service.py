@@ -5,13 +5,24 @@ class StatisticsService:
     def __init__(self, firebase_service):
         self.firebase = firebase_service
 
+    def get_valor(self, data, *keys, default=None):
+        for key in keys:
+            if key in data and data.get(key) is not None:
+                return data.get(key)
+        return default
+
+    def to_int(self, value):
+        try:
+            return int(float(value))
+        except:
+            return 0
+
     def obtener_estadisticas_usuario(self, usuario_id: str):
-        rutas = self.firebase.obtener_rutas_por_usuario(usuario_id)
-        viajes = self.firebase.obtener_viajes_por_usuario(usuario_id)
-        alertas = self.firebase.obtener_alertas_por_usuario(usuario_id)
-        monitoreos = self.firebase.obtener_monitoreo_por_usuario(usuario_id)
-        respuestas = self.firebase.obtener_respuestas_por_usuario(usuario_id)
-        estadisticas_viaje = self.firebase.obtener_estadisticas_viaje_por_usuario(usuario_id)
+        rutas = self.firebase.obtener_rutas_por_usuario(usuario_id) or []
+        viajes = self.firebase.obtener_viajes_por_usuario(usuario_id) or []
+        alertas = self.firebase.obtener_alertas_por_usuario(usuario_id) or []
+        monitoreos = self.firebase.obtener_monitoreo_por_usuario(usuario_id) or []
+        respuestas = self.firebase.obtener_respuestas_por_usuario(usuario_id) or []
 
         total_rutas = len(rutas)
         total_viajes = len(viajes)
@@ -20,29 +31,55 @@ class StatisticsService:
         fatigas = []
 
         for m in monitoreos:
-            fatigas.append(int(m.get("FatigaDetectada", 0)))
-
-        for e in estadisticas_viaje:
-            fatigas.append(int(e.get("FatigaMaxima", 0)))
-            fatigas.append(int(e.get("FatigaPromedio", 0)))
+            fatiga = self.get_valor(
+                m,
+                "FatigaDetectada",
+                "fatigaDetectada",
+                "fatiga",
+                "Fatiga",
+                default=0
+            )
+            fatigas.append(self.to_int(fatiga))
 
         fatigas_validas = [f for f in fatigas if f > 0]
 
         fatiga_maxima = max(fatigas_validas) if fatigas_validas else 0
         fatiga_promedio = round(sum(fatigas_validas) / len(fatigas_validas), 1) if fatigas_validas else 0
 
-        niveles = [a.get("Nivel", "sin nivel") for a in alertas if a.get("Nivel")]
+        niveles = []
+
+        for alerta in alertas:
+            nivel = self.get_valor(alerta, "Nivel", "nivel", default=None)
+            if nivel:
+                niveles.append(nivel)
+
         nivel_mas_frecuente = Counter(niveles).most_common(1)[0][0] if niveles else "Sin datos"
 
-        tipos_necesidad = [r.get("Tipo", "") for r in respuestas if r.get("Tipo")]
-        necesidad_mas_solicitada = self.formatear_necesidad(
-            Counter(tipos_necesidad).most_common(1)[0][0]
-        ) if tipos_necesidad else "Sin datos"
+        tipos_necesidad = []
 
-        bostezos_totales = sum(int(e.get("BostezosTotales", 0)) for e in estadisticas_viaje)
-        ojos_cerrados_totales = sum(int(e.get("OjosCerradosTotales", 0)) for e in estadisticas_viaje)
+        for r in respuestas:
+            tipo = self.get_valor(r, "Tipo", "tipo", default=None)
+            if tipo:
+                tipos_necesidad.append(tipo)
 
-        ruta_mayor_riesgo_id = self.obtener_ruta_mayor_riesgo(alertas, estadisticas_viaje)
+        necesidad_mas_solicitada = (
+            self.formatear_necesidad(Counter(tipos_necesidad).most_common(1)[0][0])
+            if tipos_necesidad else "Sin datos"
+        )
+
+        bostezos_totales = 0
+        ojos_cerrados_totales = 0
+
+        for m in monitoreos:
+            bostezos_totales += self.to_int(
+                self.get_valor(m, "BostezosTotales", "bostezosTotales", "bostezos", "Bostezos", default=0)
+            )
+
+            ojos_cerrados_totales += self.to_int(
+                self.get_valor(m, "OjosCerradosTotales", "ojosCerradosTotales", "ojosCerrados", "ojos_cerrados", default=0)
+            )
+
+        ruta_mayor_riesgo_id = self.obtener_ruta_mayor_riesgo(alertas, monitoreos)
         ruta_mayor_riesgo = self.obtener_nombre_ruta(rutas, ruta_mayor_riesgo_id)
 
         riesgo_general = self.calcular_riesgo(fatiga_maxima, total_alertas)
@@ -74,20 +111,22 @@ class StatisticsService:
             "conocimientoExtraido": conocimiento
         }
 
-    def obtener_ruta_mayor_riesgo(self, alertas, estadisticas_viaje):
+    def obtener_ruta_mayor_riesgo(self, alertas, monitoreos):
         contador = Counter()
 
         for alerta in alertas:
-            ruta_id = alerta.get("RutaId")
+            ruta_id = self.get_valor(alerta, "RutaId", "rutaId", "ruta_id", default=None)
             if ruta_id:
                 contador[ruta_id] += 1
 
-        for estadistica in estadisticas_viaje:
-            ruta_id = estadistica.get("RutaId")
-            fatiga_max = int(estadistica.get("FatigaMaxima", 0))
+        for monitoreo in monitoreos:
+            ruta_id = self.get_valor(monitoreo, "RutaId", "rutaId", "ruta_id", default=None)
+            fatiga = self.to_int(
+                self.get_valor(monitoreo, "FatigaDetectada", "fatigaDetectada", "fatiga", "Fatiga", default=0)
+            )
 
             if ruta_id:
-                contador[ruta_id] += fatiga_max / 20
+                contador[ruta_id] += fatiga / 20
 
         if not contador:
             return None
@@ -99,8 +138,10 @@ class StatisticsService:
             return "Sin datos"
 
         for ruta in rutas:
-            if ruta.get("Id") == ruta_id:
-                return ruta.get("Nombre", "Ruta sin nombre")
+            id_ruta = self.get_valor(ruta, "Id", "id", "rutaId", default=None)
+
+            if id_ruta == ruta_id:
+                return self.get_valor(ruta, "Nombre", "nombre", default="Ruta sin nombre")
 
         return "Ruta no encontrada"
 
@@ -145,4 +186,4 @@ class StatisticsService:
             "dejar_manejar": "Dejar de manejar"
         }
 
-        return mapa.get(tipo, tipo.replace("_", " ").capitalize())
+        return mapa.get(tipo, str(tipo).replace("_", " ").capitalize())

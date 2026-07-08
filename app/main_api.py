@@ -227,4 +227,12 @@ async def analizar_frame(
 
 @app.get("/api/estadisticas/usuario/{usuario_id}")
 def obtener_estadisticas_usuario(usuario_id: str):
-    return statistics_service.obtener_estadisticas_usuario(usuario_id)
+    try:
+        return statistics_service.obtener_estadisticas_usuario(usuario_id)
+    except Exception as e:
+        print("ERROR ESTADISTICAS:", e)
+        return {
+            "ok": False,
+            "mensaje": "Error al generar estadísticas",
+            "detalle": str(e)
+        }
