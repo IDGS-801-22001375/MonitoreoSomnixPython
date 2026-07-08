@@ -8,12 +8,14 @@ from pydantic import BaseModel
 from app.firebase.firebase_service import FirebaseService
 from app.services.monitoring_service import MonitoringService
 from app.detection.drowsiness_detector import DrowsinessDetector
+from app.analytics.statistics_service import StatisticsService
 
 
 app = FastAPI(title="SOMNIX API Python")
 
 monitoring_service = MonitoringService()
 firebase_service = FirebaseService()
+statistics_service = StatisticsService(firebase_service)
 detector = DrowsinessDetector()
 
 ultima_notificacion_fatiga = {}
@@ -222,3 +224,7 @@ async def analizar_frame(
         "mensaje": resultado["mensaje"],
         "nivel": resultado["nivel"]
     }
+
+@app.get("/api/estadisticas/usuario/{usuario_id}")
+def obtener_estadisticas_usuario(usuario_id: str):
+    return statistics_service.obtener_estadisticas_usuario(usuario_id)

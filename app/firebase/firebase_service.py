@@ -173,3 +173,51 @@ class FirebaseService:
             "ok": True,
             "mensaje": "Ruta marcada como terminada"
         }
+    
+    def obtener_rutas_por_usuario(self, usuario_id):
+        rutas = self.root.child("rutas").get() or {}
+
+        return [
+            ruta for ruta in rutas.values()
+            if ruta.get("UsuarioId") == usuario_id
+        ]
+
+    def obtener_viajes_por_usuario(self, usuario_id):
+        viajes = self.root.child("viajes").get() or {}
+
+        return [
+            viaje for viaje in viajes.values()
+            if viaje.get("UsuarioId") == usuario_id
+        ]
+
+    def obtener_alertas_por_usuario(self, usuario_id):
+        alertas = self.root.child("alertas").get() or {}
+
+        return [
+            alerta for alerta in alertas.values()
+            if alerta.get("UsuarioId") == usuario_id
+        ]
+
+    def obtener_monitoreo_por_usuario(self, usuario_id):
+        monitoreos = self.root.child("monitoreoCamara").get() or {}
+
+        return [
+            monitoreo for monitoreo in monitoreos.values()
+            if monitoreo.get("UsuarioId") == usuario_id
+        ]
+
+    def obtener_respuestas_por_usuario(self, usuario_id):
+        respuestas = self.root.child("respuestasConductor").get() or {}
+
+        return [
+            respuesta for respuesta in respuestas.values()
+            if respuesta.get("UsuarioId") == usuario_id
+        ]
+
+    def obtener_estadisticas_viaje_por_usuario(self, usuario_id):
+        estadisticas = self.root.child("estadisticasViaje").get() or {}
+
+        return [
+            estadistica for estadistica in estadisticas.values()
+            if estadistica.get("UsuarioId") == usuario_id
+        ]
