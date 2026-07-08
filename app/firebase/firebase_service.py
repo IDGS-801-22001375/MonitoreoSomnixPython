@@ -1,13 +1,19 @@
 from datetime import datetime
+import json
 import firebase_admin
 from firebase_admin import credentials, db
-from app.config import FIREBASE_CREDENTIALS, FIREBASE_DATABASE_URL
+from app.config import FIREBASE_CREDENTIALS, FIREBASE_CREDENTIALS_JSON, FIREBASE_DATABASE_URL
 
 
 class FirebaseService:
     def __init__(self):
         if not firebase_admin._apps:
-            cred = credentials.Certificate(FIREBASE_CREDENTIALS)
+            if FIREBASE_CREDENTIALS_JSON:
+                cred_dict = json.loads(FIREBASE_CREDENTIALS_JSON)
+                cred = credentials.Certificate(cred_dict)
+            else:
+                cred = credentials.Certificate(FIREBASE_CREDENTIALS)
+
             firebase_admin.initialize_app(cred, {
                 "databaseURL": FIREBASE_DATABASE_URL
             })

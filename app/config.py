@@ -1,6 +1,13 @@
+import os
+
 FIREBASE_CREDENTIALS = "credentials/firebase-key.json"
 
-FIREBASE_DATABASE_URL = "https://somnix-cfdb1-default-rtdb.firebaseio.com/"
+FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_CREDENTIALS_JSON")
+
+FIREBASE_DATABASE_URL = os.getenv(
+    "FIREBASE_DATABASE_URL",
+    "https://somnix-cfdb1-default-rtdb.firebaseio.com/"
+)
 
 CAMERA_URL = 1
 
