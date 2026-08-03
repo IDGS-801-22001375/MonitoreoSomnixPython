@@ -227,3 +227,18 @@ class FirebaseService:
             estadistica for estadistica in estadisticas.values()
             if estadistica.get("UsuarioId") == usuario_id
         ]
+
+    def filtrar_por_usuario(self, nodo, usuario_id):
+        datos = self.root.child(nodo).get() or {}
+
+        if not isinstance(datos, dict):
+            return []
+
+        usuario_id = str(usuario_id).strip()
+
+        return [
+            registro
+            for registro in datos.values()
+            if isinstance(registro, dict)
+            and str(registro.get("UsuarioId", "")).strip() == usuario_id
+        ]
