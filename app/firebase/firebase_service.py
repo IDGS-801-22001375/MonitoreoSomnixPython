@@ -181,64 +181,66 @@ class FirebaseService:
         }
     
     def obtener_rutas_por_usuario(self, usuario_id):
-        rutas = self.root.child("rutas").get() or {}
-
-        return [
-            ruta for ruta in rutas.values()
-            if ruta.get("UsuarioId") == usuario_id
-        ]
+        return self.filtrar_por_usuario(
+            "rutas",
+            usuario_id
+        )
 
     def obtener_viajes_por_usuario(self, usuario_id):
-        viajes = self.root.child("viajes").get() or {}
-
-        return [
-            viaje for viaje in viajes.values()
-            if viaje.get("UsuarioId") == usuario_id
-        ]
+        return self.filtrar_por_usuario(
+            "viajes",
+            usuario_id
+        )
 
     def obtener_alertas_por_usuario(self, usuario_id):
-        alertas = self.root.child("alertas").get() or {}
-
-        return [
-            alerta for alerta in alertas.values()
-            if alerta.get("UsuarioId") == usuario_id
-        ]
+        return self.filtrar_por_usuario(
+            "alertas",
+            usuario_id
+        )
 
     def obtener_monitoreo_por_usuario(self, usuario_id):
-        monitoreos = self.root.child("monitoreoCamara").get() or {}
-
-        return [
-            monitoreo for monitoreo in monitoreos.values()
-            if monitoreo.get("UsuarioId") == usuario_id
-        ]
+        return self.filtrar_por_usuario(
+            "monitoreoCamara",
+            usuario_id
+        )
 
     def obtener_respuestas_por_usuario(self, usuario_id):
-        respuestas = self.root.child("respuestasConductor").get() or {}
-
-        return [
-            respuesta for respuesta in respuestas.values()
-            if respuesta.get("UsuarioId") == usuario_id
-        ]
+        return self.filtrar_por_usuario(
+            "respuestasConductor",
+            usuario_id
+        )
 
     def obtener_estadisticas_viaje_por_usuario(self, usuario_id):
-        estadisticas = self.root.child("estadisticasViaje").get() or {}
+        return self.filtrar_por_usuario(
+            "estadisticasViaje",
+            usuario_id
+        )
 
-        return [
-            estadistica for estadistica in estadisticas.values()
-            if estadistica.get("UsuarioId") == usuario_id
-        ]
-
-    def filtrar_por_usuario(self, nodo, usuario_id):
+    def filtrar_por_usuario(self, nodo: str, usuario_id: str):
         datos = self.root.child(nodo).get() or {}
 
         if not isinstance(datos, dict):
+            print(f"El nodo {nodo} no es un diccionario")
             return []
 
         usuario_id = str(usuario_id).strip()
+        registros = []
 
-        return [
-            registro
-            for registro in datos.values()
-            if isinstance(registro, dict)
-            and str(registro.get("UsuarioId", "")).strip() == usuario_id
-        ]
+        for registro_id, registro in datos.items():
+
+            # Ignora registros vacíos, textos y datos dañados
+            if not isinstance(registro, dict):
+                print(
+                    f"Registro ignorado en {nodo}/{registro_id}: "
+                    f"tipo={type(registro).__name__}, valor={registro}"
+                )
+                continue
+
+            registro_usuario_id = str(
+                registro.get("UsuarioId", "")
+            ).strip()
+
+            if registro_usuario_id == usuario_id:
+                registros.append(registro)
+
+        return registros
