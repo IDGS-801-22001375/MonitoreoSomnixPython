@@ -9,6 +9,7 @@ from app.firebase.firebase_service import FirebaseService
 from app.services.monitoring_service import MonitoringService
 from app.detection.drowsiness_detector import DrowsinessDetector
 from app.analytics.statistics_service import StatisticsService
+from fastapi import FastAPI, File, UploadFile, HTTPException
 
 
 app = FastAPI(title="SOMNIX API Python")
@@ -228,11 +229,13 @@ async def analizar_frame(
 @app.get("/api/estadisticas/usuario/{usuario_id}")
 def obtener_estadisticas_usuario(usuario_id: str):
     try:
-        return statistics_service.obtener_estadisticas_usuario(usuario_id)
+        return statistics_service.obtener_estadisticas_usuario(
+            usuario_id
+        )
     except Exception as e:
-        print("ERROR ESTADISTICAS:", e)
-        return {
-            "ok": False,
-            "mensaje": "Error al generar estadísticas",
-            "detalle": str(e)
-        }
+        print("ERROR ESTADISTICAS:", repr(e))
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al generar estadísticas: {str(e)}"
+        )
