@@ -39,23 +39,194 @@ class FirebaseService:
 
         raise Exception("No hay ruta activa o pendiente")
 
-    def crear_monitoreo(self, usuario_id, ruta_id, ojos_cerrados, fatiga, bostezos, estado_camara):
-        ref = self.root.child("monitoreoCamara").push()
+    def crear_monitoreo(
+        self,
+        usuario_id,
+        ruta_id,
+        ojos_cerrados,
+        fatiga,
+        bostezos,
+        estado_camara,
+        parpadeos=0,
+        cabeceos=0,
+        perclos=0.0,
+        ear=0.0,
+        mar=0.0,
+        estado_detector="SIN_DATOS",
+        rostro_detectado=True,
+        tiempo_ojos_cerrados=0.0,
+        procesamiento_ms=0.0,
+        calidad_frame="sin_datos"
+    ):
+        """
+        Guarda una muestra consolidada del monitoreo.
+
+        Los primeros seis parámetros conservan compatibilidad con
+        las llamadas anteriores del sistema.
+        """
+
+        ref = self.root.child(
+            "monitoreoCamara"
+        ).push()
+
         monitoreo_id = ref.key
+
+        try:
+            fatiga_segura = max(
+                0,
+                min(int(float(fatiga)), 100)
+            )
+        except (TypeError, ValueError):
+            fatiga_segura = 0
+
+        try:
+            bostezos_seguros = max(
+                int(float(bostezos)),
+                0
+            )
+        except (TypeError, ValueError):
+            bostezos_seguros = 0
+
+        try:
+            parpadeos_seguros = max(
+                int(float(parpadeos)),
+                0
+            )
+        except (TypeError, ValueError):
+            parpadeos_seguros = 0
+
+        try:
+            cabeceos_seguros = max(
+                int(float(cabeceos)),
+                0
+            )
+        except (TypeError, ValueError):
+            cabeceos_seguros = 0
+
+        try:
+            perclos_seguro = max(
+                0.0,
+                min(float(perclos), 1.0)
+            )
+        except (TypeError, ValueError):
+            perclos_seguro = 0.0
+
+        try:
+            ear_seguro = max(
+                float(ear),
+                0.0
+            )
+        except (TypeError, ValueError):
+            ear_seguro = 0.0
+
+        try:
+            mar_seguro = max(
+                float(mar),
+                0.0
+            )
+        except (TypeError, ValueError):
+            mar_seguro = 0.0
+
+        try:
+            tiempo_cerrado_seguro = max(
+                float(tiempo_ojos_cerrados),
+                0.0
+            )
+        except (TypeError, ValueError):
+            tiempo_cerrado_seguro = 0.0
+
+        try:
+            procesamiento_seguro = max(
+                float(procesamiento_ms),
+                0.0
+            )
+        except (TypeError, ValueError):
+            procesamiento_seguro = 0.0
 
         data = {
             "Id": monitoreo_id,
-            "UsuarioId": usuario_id,
-            "RutaId": ruta_id,
-            "OjosCerrados": ojos_cerrados,
-            "FatigaDetectada": fatiga,
-            "BostezosDetectados": bostezos,
-            "EstadoCamara": estado_camara,
-            "FechaRegistro": datetime.now().isoformat()
+            "UsuarioId": str(
+                usuario_id or ""
+            ).strip(),
+            "RutaId": str(
+                ruta_id or ""
+            ).strip(),
+
+            "OjosCerrados": bool(
+                ojos_cerrados
+            ),
+            "RostroDetectado": bool(
+                rostro_detectado
+            ),
+
+            "FatigaDetectada": fatiga_segura,
+
+            """
+            * Estos contadores son acumulados durante el viaje.
+            * StatisticsService se ajustará posteriormente para usar
+            * el máximo, no sumar cada muestra acumulada.
+            """
+            
+            "BostezosDetectados": (
+                bostezos_seguros
+            ),
+            "BostezosTotales": (
+                bostezos_seguros
+            ),
+            "ParpadeosTotales": (
+                parpadeos_seguros
+            ),
+            "CabeceosTotales": (
+                cabeceos_seguros
+            ),
+
+            "TiempoOjosCerrados": round(
+                tiempo_cerrado_seguro,
+                2
+            ),
+            "PERCLOS": round(
+                perclos_seguro,
+                4
+            ),
+            "EAR": round(
+                ear_seguro,
+                4
+            ),
+            "MAR": round(
+                mar_seguro,
+                4
+            ),
+
+            "EstadoDetector": str(
+                estado_detector or "SIN_DATOS"
+            ).strip(),
+
+            "EstadoCamara": str(
+                estado_camara or "desconocida"
+            ).strip(),
+
+            "ProcesamientoMs": round(
+                procesamiento_seguro,
+                1
+            ),
+
+            "CalidadFrame": str(
+                calidad_frame or "sin_datos"
+            ).strip(),
+
+            "FechaRegistro": (
+                datetime.now().isoformat()
+            )
         }
 
         ref.set(data)
-        print("Monitoreo guardado:", data)
+
+        print(
+            "Monitoreo consolidado guardado:",
+            monitoreo_id
+        )
+
+        return data
 
     def crear_alerta(self, usuario_id, ruta_id, tipo, mensaje, nivel):
         ref = self.root.child("alertas").push()
