@@ -99,6 +99,9 @@ def terminar_viaje(request: TerminarViajeRequest):
 
     return resultado
 
+@app.post("/api/viaje/reanudar")
+def reanudar_viaje():
+    return monitoring_service.reanudar()
 
 @app.get("/api/monitoreo/estado")
 def estado_monitoreo():
@@ -106,11 +109,32 @@ def estado_monitoreo():
 
 
 @app.post("/api/alarma/apagar")
-def apagar_alarma(request: ApagarAlarmaRequest):
-    return firebase_service.apagar_ultima_alerta(
-        usuario_id=request.usuarioId,
-        ruta_id=request.rutaId
+def apagar_alarma(
+    request: ApagarAlarmaRequest
+):
+    resultado_firebase = (
+        firebase_service.apagar_ultima_alerta(
+            usuario_id=request.usuarioId,
+            ruta_id=request.rutaId
+        )
     )
+
+    resultado_gorra = (
+        monitoring_service.apagar_alarma()
+    )
+
+    return {
+        "ok": (
+            resultado_firebase.get("ok", False)
+            or resultado_gorra.get("ok", False)
+        ),
+        "mensaje": (
+            "Solicitud para apagar la alarma "
+            "procesada correctamente"
+        ),
+        "firebase": resultado_firebase,
+        "gorra": resultado_gorra
+    }
 
 
 @app.post("/api/conductor/necesidad")

@@ -1,5 +1,5 @@
 import cv2
-
+import time
 from app.camera.camera_service import CameraService
 from app.detection.drowsiness_detector import DrowsinessDetector
 
@@ -23,6 +23,9 @@ class MonitoringLoop:
         )
 
         while self.state.activo:
+            if self.state.pausado:
+                time.sleep(0.2)
+                continue
             ret, frame = self.camera.leer_frame()
 
             if not ret:
