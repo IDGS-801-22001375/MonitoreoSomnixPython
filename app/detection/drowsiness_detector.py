@@ -385,7 +385,9 @@ class DrowsinessDetector:
         else:
             factor = 0.18
 
-        self.fatiga_suavizada = (
+        fatiga_anterior = self.fatiga_suavizada
+
+        fatiga_calculada = (
             self.fatiga_suavizada
             + factor
             * (
@@ -394,13 +396,21 @@ class DrowsinessDetector:
             )
         )
 
+        # Evita saltos visuales como 0 -> 75 en un solo frame.
+        # Con el intervalo actual de Android (750 ms), la fatiga
+        # puede avanzar aproximadamente 6 puntos por respuesta:
+        # 0, 6, 12, 18... La alarma de 15% sigue activándose.
         if (
-            tiempo_cerrado >=
-            TIEMPO_OJOS_CERRADOS
+            fatiga_calculada >
+            fatiga_anterior
         ):
-            self.fatiga_suavizada = max(
-                self.fatiga_suavizada,
-                75.0
+            self.fatiga_suavizada = min(
+                fatiga_calculada,
+                fatiga_anterior + 6.0
+            )
+        else:
+            self.fatiga_suavizada = (
+                fatiga_calculada
             )
 
         return min(
