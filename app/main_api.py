@@ -5,7 +5,7 @@ from fastapi import (
     FastAPI,
     File,
     HTTPException,
-    UploadFile
+    UploadFile,
 )
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
@@ -14,12 +14,12 @@ from app.analytics.statistics_service import StatisticsService
 from app.detection.detector_registry import DetectorRegistry
 from app.firebase.firebase_service import FirebaseService
 from app.services.alert_management_service import AlertManagementService
-from app.services.frame_analysis_service import (
+from app.services.FrameAnalysisService import (
     FrameAnalysisError,
-    FrameAnalysisService
+    FrameAnalysisService,
 )
 from app.services.monitoring_persistence_service import (
-    MonitoringPersistenceService
+    MonitoringPersistenceService,
 )
 from app.services.monitoring_service import MonitoringService
 
