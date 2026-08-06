@@ -67,8 +67,8 @@ class DrowsinessDetector:
             13, 14, 78, 308
         ]
 
-        self.MAR_UMBRAL = 0.55
-        self.TIEMPO_MINIMO_BOSTEZO = 0.8
+        self.MAR_UMBRAL = 0.42
+        self.TIEMPO_MINIMO_BOSTEZO = 0.7
 
         self.boca_abierta_inicio = None
         self.bostezo_en_curso = False

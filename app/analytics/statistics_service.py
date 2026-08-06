@@ -161,6 +161,7 @@ class StatisticsService:
                 "mensaje": "No se recibió un usuario válido.",
                 "usuarioId": "",
                 "totalRutas": 0,
+                "totalViajes": 0,
                 "totalMuestras": 0,
                 "totalAlertas": 0,
                 "fatigaMaxima": 0,
@@ -201,9 +202,18 @@ class StatisticsService:
             )
         )
 
+        estadisticas_viaje = self.normalizar_coleccion(
+            self.firebase
+            .obtener_estadisticas_viaje_por_usuario(
+                usuario_id_seguro
+            )
+        )
+
         ruta_ids_analizadas = {
             ruta_id
-            for registro in monitoreos
+            for registro in (
+                monitoreos + estadisticas_viaje
+            )
             if (
                 ruta_id := self.normalizar_id(
                     self.get_valor(
@@ -218,6 +228,7 @@ class StatisticsService:
         }
 
         total_rutas = len(ruta_ids_analizadas)
+        total_viajes = len(estadisticas_viaje)
         total_muestras = len(monitoreos)
         total_alertas = len(alertas)
 
@@ -239,27 +250,75 @@ class StatisticsService:
 
             fatigas.append(self.to_int(fatiga))
 
+        fatigas_maximas_consolidadas = [
+            self.to_int(
+                self.get_valor(
+                    estadistica,
+                    "FatigaMaxima",
+                    "fatigaMaxima",
+                    default=0
+                )
+            )
+            for estadistica in estadisticas_viaje
+        ]
+
+        fatigas_promedio_consolidadas = [
+            self.to_float(
+                self.get_valor(
+                    estadistica,
+                    "FatigaPromedio",
+                    "fatigaPromedio",
+                    default=0.0
+                )
+            )
+            for estadistica in estadisticas_viaje
+        ]
+
         fatigas_validas = [
             fatiga
             for fatiga in fatigas
             if fatiga > 0
         ]
 
-        fatiga_maxima = (
-            max(fatigas_validas)
-            if fatigas_validas
-            else 0
-        )
+        fatigas_maximas_consolidadas = [
+            valor
+            for valor in fatigas_maximas_consolidadas
+            if valor > 0
+        ]
 
-        fatiga_promedio = (
-            round(
-                sum(fatigas_validas) /
-                len(fatigas_validas),
+        fatigas_promedio_consolidadas = [
+            valor
+            for valor in fatigas_promedio_consolidadas
+            if valor > 0
+        ]
+
+        if fatigas_maximas_consolidadas:
+            fatiga_maxima = max(
+                fatigas_maximas_consolidadas
+            )
+        else:
+            fatiga_maxima = (
+                max(fatigas_validas)
+                if fatigas_validas
+                else 0
+            )
+
+        if fatigas_promedio_consolidadas:
+            fatiga_promedio = round(
+                sum(fatigas_promedio_consolidadas) /
+                len(fatigas_promedio_consolidadas),
                 1
             )
-            if fatigas_validas
-            else 0.0
-        )
+        else:
+            fatiga_promedio = (
+                round(
+                    sum(fatigas_validas) /
+                    len(fatigas_validas),
+                    1
+                )
+                if fatigas_validas
+                else 0.0
+            )
 
         # ========================================================
         # NIVEL MÁS FRECUENTE
@@ -359,10 +418,13 @@ class StatisticsService:
                 []
             ).append(monitoreo)
 
-        bostezos_totales = 0
-        ojos_cerrados_totales = 0
+        bostezos_anteriores_por_ruta = {}
+        ojos_anteriores_por_ruta = {}
 
-        for registros_ruta in monitoreos_por_ruta.values():
+        for (
+            clave_ruta,
+            registros_ruta
+        ) in monitoreos_por_ruta.items():
             contador_bostezos_anterior = 0
             maximo_bostezos_periodo = 0
             ojos_cerrados_anterior = False
@@ -389,8 +451,13 @@ class StatisticsService:
                     bostezos_actuales <
                     contador_bostezos_anterior
                 ):
-                    bostezos_totales += (
-                        maximo_bostezos_periodo
+                    bostezos_anteriores_por_ruta[
+                        clave_ruta
+                    ] = (
+                        bostezos_anteriores_por_ruta.get(
+                            clave_ruta,
+                            0
+                        ) + maximo_bostezos_periodo
                     )
 
                     maximo_bostezos_periodo = (
@@ -420,15 +487,106 @@ class StatisticsService:
                     ojos_cerrados
                     and not ojos_cerrados_anterior
                 ):
-                    ojos_cerrados_totales += 1
+                    ojos_anteriores_por_ruta[
+                        clave_ruta
+                    ] = (
+                        ojos_anteriores_por_ruta.get(
+                            clave_ruta,
+                            0
+                        ) + 1
+                    )
 
                 ojos_cerrados_anterior = (
                     ojos_cerrados
                 )
 
-            bostezos_totales += (
-                maximo_bostezos_periodo
+            bostezos_anteriores_por_ruta[
+                clave_ruta
+            ] = (
+                bostezos_anteriores_por_ruta.get(
+                    clave_ruta,
+                    0
+                ) + maximo_bostezos_periodo
             )
+
+        bostezos_nuevos_por_ruta = {}
+        ojos_nuevos_por_ruta = {}
+
+        for estadistica in estadisticas_viaje:
+            ruta_id = self.normalizar_id(
+                self.get_valor(
+                    estadistica,
+                    "RutaId",
+                    "rutaId",
+                    "ruta_id",
+                    default=None
+                )
+            ) or "sin_ruta"
+
+            bostezos_nuevos_por_ruta[ruta_id] = (
+                bostezos_nuevos_por_ruta.get(
+                    ruta_id,
+                    0
+                ) + self.to_int(
+                    self.get_valor(
+                        estadistica,
+                        "BostezosTotales",
+                        "bostezosTotales",
+                        "BostezosDetectados",
+                        "bostezosDetectados",
+                        default=0
+                    )
+                )
+            )
+
+            ojos_nuevos_por_ruta[ruta_id] = (
+                ojos_nuevos_por_ruta.get(
+                    ruta_id,
+                    0
+                ) + self.to_int(
+                    self.get_valor(
+                        estadistica,
+                        "OjosCerradosTotales",
+                        "ojosCerradosTotales",
+                        default=0
+                    )
+                )
+            )
+
+        todas_las_rutas_eventos = (
+            set(bostezos_anteriores_por_ruta) |
+            set(ojos_anteriores_por_ruta) |
+            set(bostezos_nuevos_por_ruta) |
+            set(ojos_nuevos_por_ruta)
+        )
+
+        bostezos_totales = sum(
+            max(
+                bostezos_anteriores_por_ruta.get(
+                    ruta_id,
+                    0
+                ),
+                bostezos_nuevos_por_ruta.get(
+                    ruta_id,
+                    0
+                )
+            )
+            for ruta_id in todas_las_rutas_eventos
+        )
+
+        ojos_cerrados_totales = sum(
+            max(
+                ojos_anteriores_por_ruta.get(
+                    ruta_id,
+                    0
+                ),
+                ojos_nuevos_por_ruta.get(
+                    ruta_id,
+                    0
+                )
+            )
+            for ruta_id in todas_las_rutas_eventos
+        )
 
         # ========================================================
         # RUTA CON MAYOR RIESGO
@@ -475,6 +633,9 @@ class StatisticsService:
             "usuarioId": usuario_id_seguro,
             "totalRutas": int(
                 total_rutas
+            ),
+            "totalViajes": int(
+                total_viajes
             ),
             "totalMuestras": int(
                 total_muestras
