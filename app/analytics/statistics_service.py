@@ -161,7 +161,7 @@ class StatisticsService:
                 "mensaje": "No se recibió un usuario válido.",
                 "usuarioId": "",
                 "totalRutas": 0,
-                "totalViajes": 0,
+                "totalMuestras": 0,
                 "totalAlertas": 0,
                 "fatigaMaxima": 0,
                 "fatigaPromedio": 0.0,
@@ -179,12 +179,6 @@ class StatisticsService:
         # listas, diccionarios o valores nulos.
         rutas = self.normalizar_coleccion(
             self.firebase.obtener_rutas_por_usuario(
-                usuario_id_seguro
-            )
-        )
-
-        viajes = self.normalizar_coleccion(
-            self.firebase.obtener_viajes_por_usuario(
                 usuario_id_seguro
             )
         )
@@ -207,8 +201,24 @@ class StatisticsService:
             )
         )
 
-        total_rutas = len(rutas)
-        total_viajes = len(viajes)
+        ruta_ids_analizadas = {
+            ruta_id
+            for registro in monitoreos
+            if (
+                ruta_id := self.normalizar_id(
+                    self.get_valor(
+                        registro,
+                        "RutaId",
+                        "rutaId",
+                        "ruta_id",
+                        default=None
+                    )
+                )
+            )
+        }
+
+        total_rutas = len(ruta_ids_analizadas)
+        total_muestras = len(monitoreos)
         total_alertas = len(alertas)
 
         # ========================================================
@@ -314,32 +324,110 @@ class StatisticsService:
         # BOSTEZOS Y OJOS CERRADOS
         # ========================================================
 
+        monitoreos_ordenados = sorted(
+            monitoreos,
+            key=lambda monitoreo: self.to_texto(
+                self.get_valor(
+                    monitoreo,
+                    "FechaRegistro",
+                    "fechaRegistro",
+                    default=""
+                ),
+                default=""
+            )
+        )
+
+        monitoreos_por_ruta = {}
+
+        for monitoreo in monitoreos_ordenados:
+            ruta_id = self.normalizar_id(
+                self.get_valor(
+                    monitoreo,
+                    "RutaId",
+                    "rutaId",
+                    "ruta_id",
+                    "IdRuta",
+                    "idRuta",
+                    default=None
+                )
+            )
+
+            clave_ruta = ruta_id or "sin_ruta"
+
+            monitoreos_por_ruta.setdefault(
+                clave_ruta,
+                []
+            ).append(monitoreo)
+
         bostezos_totales = 0
         ojos_cerrados_totales = 0
 
-        for monitoreo in monitoreos:
-            bostezos = self.get_valor(
-                monitoreo,
-                "BostezosTotales",
-                "bostezosTotales",
-                "bostezos",
-                "Bostezos",
-                default=0
-            )
+        for registros_ruta in monitoreos_por_ruta.values():
+            contador_bostezos_anterior = 0
+            maximo_bostezos_periodo = 0
+            ojos_cerrados_anterior = False
 
-            ojos_cerrados = self.get_valor(
-                monitoreo,
-                "OjosCerradosTotales",
-                "ojosCerradosTotales",
-                "ojosCerrados",
-                "ojos_cerrados",
-                "OjosCerrados",
-                default=0
-            )
+            for monitoreo in registros_ruta:
+                bostezos_actuales = self.to_int(
+                    self.get_valor(
+                        monitoreo,
+                        "BostezosTotales",
+                        "bostezosTotales",
+                        "BostezosDetectados",
+                        "bostezosDetectados",
+                        "bostezos",
+                        "Bostezos",
+                        default=0
+                    )
+                )
 
-            bostezos_totales += self.to_int(bostezos)
-            ojos_cerrados_totales += self.to_int(
-                ojos_cerrados
+                """
+                * Si el contador disminuye, significa que el detector
+                * se reinició al comenzar otro monitoreo de la ruta.
+                """
+                if (
+                    bostezos_actuales <
+                    contador_bostezos_anterior
+                ):
+                    bostezos_totales += (
+                        maximo_bostezos_periodo
+                    )
+
+                    maximo_bostezos_periodo = (
+                        bostezos_actuales
+                    )
+                else:
+                    maximo_bostezos_periodo = max(
+                        maximo_bostezos_periodo,
+                        bostezos_actuales
+                    )
+
+                contador_bostezos_anterior = (
+                    bostezos_actuales
+                )
+
+                ojos_cerrados = bool(
+                    self.get_valor(
+                        monitoreo,
+                        "OjosCerrados",
+                        "ojosCerrados",
+                        "ojos_cerrados",
+                        default=False
+                    )
+                )
+
+                if (
+                    ojos_cerrados
+                    and not ojos_cerrados_anterior
+                ):
+                    ojos_cerrados_totales += 1
+
+                ojos_cerrados_anterior = (
+                    ojos_cerrados
+                )
+
+            bostezos_totales += (
+                maximo_bostezos_periodo
             )
 
         # ========================================================
@@ -385,9 +473,15 @@ class StatisticsService:
         return {
             "ok": True,
             "usuarioId": usuario_id_seguro,
-            "totalRutas": int(total_rutas),
-            "totalViajes": int(total_viajes),
-            "totalAlertas": int(total_alertas),
+            "totalRutas": int(
+                total_rutas
+            ),
+            "totalMuestras": int(
+                total_muestras
+            ),
+            "totalAlertas": int(
+                total_alertas
+            ),
             "fatigaMaxima": int(fatiga_maxima),
             "fatigaPromedio": float(fatiga_promedio),
             "rutaMayorRiesgo": (
