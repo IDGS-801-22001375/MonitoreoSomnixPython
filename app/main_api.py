@@ -294,24 +294,46 @@ def reanudar_viaje(
 ):
     resultado = monitoring_service.reanudar()
 
-    if resultado.get("ok", False):
-        estado_actual = monitoring_service.estado()
+    if not resultado.get("ok", False):
+        return resultado
 
-        usuario_id = estado_actual.get(
-            "usuarioId"
+    estado_actual = monitoring_service.estado()
+
+    usuario_id = estado_actual.get(
+        "usuarioId"
+    )
+
+    ruta_id = estado_actual.get(
+        "rutaId"
+    )
+
+    """
+     * El detector anterior conserva PERCLOS,
+     * cierres de ojos, bostezos y fatiga.
+     *
+     * Al eliminarlo, el siguiente frame crea
+     * automáticamente un detector limpio para
+     * el mismo usuario y ruta.
+    """
+    if usuario_id and ruta_id:
+        frame_analysis_service.eliminar_detector(
+            usuario_id=usuario_id,
+            ruta_id=ruta_id
         )
 
-        if usuario_id:
-            background_tasks.add_task(
-                crear_notificacion_segura,
-                usuario_id,
-                "Viaje reanudado",
-                (
-                    "El monitoreo del viaje "
-                    "se encuentra activo nuevamente."
-                ),
-                "monitoreo"
-            )
+    if usuario_id:
+        background_tasks.add_task(
+            crear_notificacion_segura,
+            usuario_id,
+            "Viaje reanudado",
+            (
+                "El monitoreo del viaje "
+                "se encuentra activo nuevamente."
+            ),
+            "monitoreo"
+        )
+
+    resultado["fatigaReiniciada"] = True
 
     return resultado
 
